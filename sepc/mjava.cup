@@ -1,0 +1,815 @@
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.*;
+import symtab.*;
+import type.*;
+
+// ============================ 将添加到语法分析器的代码段 =============================
+parser code  {: 
+    /** 词法分析器*/
+    public static Scanner s;
+    /** 错误次数*/
+    public static int errors = 0;
+    /** 警告次数*/
+    public static int warnings = 0;
+    public static boolean first = true, second = false;
+    /** 主方法*/
+    public static void main(String argv[]) {
+        /** 对输入参数进行遍历*/
+        for(int i = 0; i < argv.length; i++) {
+            try{
+                //首次分析
+                System.out.println("\n...创建符号表 ["+argv[i]+"]...\n");
+                s = new Scanner(new FileReader(argv[i]));
+                mjavac p = new mjavac(s);
+                p.parse();
+                System.out.println("错误个数 = " + errors + ".");
+                System.out.println("警告个数 = " + warnings + ".");
+                Type.printTypes();
+                first = false;
+                second = true;
+                
+                //进行第二次分析
+                System.out.println("\n...语义分析 ["+argv[i]+"]...\n");
+                s = new Scanner(new FileReader(argv[i]));
+                p = new mjavac(s);
+                p.parse();
+                System.out.println("Number of errors = " + errors + ".");
+                System.out.println("Number of warnings = " + warnings + ".");
+                Type.printTypes();
+            }catch(Exception e) {
+                e.printStackTrace(System.out);
+                System.exit(1);
+            }
+        }
+    }
+    /** 报告错误*/
+    public void report_error(String message, Object info) {
+        if (info instanceof String){
+            errors++; 
+            System.err.println("  "+ errors + "==> " + info + " "+ message + 
+                        "\n       Parsing resumed from 2nd token before" + s.current_lexeme()+"\n");
+        }
+        else{
+            StringBuffer m = new StringBuffer("Error ");
+            if (info instanceof java_cup.runtime.Symbol){
+                m.append( "("+info.toString()+")" );
+            }
+            m.append(" : "+message);   
+            System.err.println(m);
+        }
+    }
+    /** 语义错误*/
+    public void sem_error(String lexeme, String message) {
+        errors++;
+        System.err.println("Error "+ s.current_lexeme() + " : Semantic error");
+        System.err.println("  "+ errors + "==> " + message + ": "+ lexeme + "\n");
+    }
+    /** 发出警告*/
+    public void warning(String lexeme, String message) {
+        warnings++;
+     	System.err.println("Warning "+ s.current_lexeme());
+        System.err.println("  "+ warnings + "==> " + message + ": "+ lexeme + "\n");
+    } 
+    /** 报告严重错误*/
+    public void report_fatal_error(String message, Object info) {
+    	report_error(message, info);
+    	throw new RuntimeException("Fatal Syntax Error");
+    }
+:};
+
+
+
+action code {:
+
+:};
+
+
+init with {:
+	if(first) {	Type.initTypes();
+			Env.initFirst();
+	}
+	if(second) Env.initSecond();
+:};
+
+
+// =================================================================
+// ============================ 终结符 =============================
+
+terminal BOOLEAN; // primitive_type
+terminal INT, CHAR, FLOAT; // numeric_type
+terminal LBRACK, RBRACK; // array_type
+terminal DOT; // qualified_name
+terminal SEMICOLON, MULT, COMMA, LBRACE, RBRACE, EQ, LPAREN, RPAREN, COLON;
+terminal PUBLIC; // modifier
+terminal CLASS; // class_declaration
+terminal EXTENDS; // super
+terminal VOID; // method_header
+terminal THIS, SUPER; // explicit_constructor_invocation
+terminal AT; // reference operator
+terminal IF, ELSE; // if_then_statement, if_then_else_statement
+terminal WHILE; // while_statement, do_statement
+terminal RETURN; // return_statement
+terminal NEW; // class_instance_creation_expression
+terminal PLUS, MINUS, NOT, DIV, MOD;
+terminal LT, GT, LTEQ, GTEQ; // relational_expression
+terminal EQEQ, NOTEQ; // equality_expression
+terminal ANDAND; // conditional_and_expression
+terminal OROR; // conditional_or_expression
+terminal QUESTION; // conditional_expression
+terminal ILLEGAL_CHARACTER; // illegal_character
+
+terminal java.lang.Number INTEGER_LITERAL;
+terminal java.lang.Number FLOATING_POINT_LITERAL;
+terminal java.lang.Boolean BOOLEAN_LITERAL;
+terminal java.lang.Character CHARACTER_LITERAL;
+terminal java.lang.String STRING_LITERAL;
+terminal java.lang.String IDENTIFIER; // name
+terminal NULL_LITERAL;
+
+// =================================================================
+// ============================ 非终结符 ===========================
+
+// 1) The Syntactic Grammar
+// 开始符号
+non terminal goal;
+
+// 2) Lexical Structure
+// 字面值
+non terminal literal;
+
+// 3) Types, Values, and Variables
+// 类型、值、变量
+non terminal Type type, primitive_type, numeric_type;
+non terminal Type reference_type;
+non terminal Type array_type;
+
+// 4
+// name
+non terminal String name;
+non terminal Type M1;
+
+// 5
+// 类
+non terminal class_declarations;
+
+// 5.1
+// 类的成员
+non terminal class_declaration;
+non terminal class_body, class_body_opt;
+non terminal Boolean modifiers_opt;
+non terminal class_body_declarations, class_body_declarations_opt;
+non terminal class_body_declaration, class_member_declaration;
+
+// 5.2
+// 成员变量
+non terminal field_declaration, variable_declarators;
+non terminal variable_declarator_id;
+
+// 5.3
+// 成员方法
+non terminal method_declaration, method_header;
+non terminal Type formal_parameter_list_opt, formal_parameter_list;
+non terminal Type formal_parameter;
+non terminal method_body;
+
+// 5.4
+// 构造函数
+non terminal constructor_declaration, constructor_declarator;
+non terminal constructor_body;
+non terminal explicit_constructor_invocation;
+
+// 6
+// 代码块和语句
+non terminal block;
+non terminal block_statements_opt, block_statements, block_statement;
+non terminal local_variable_declaration_statement;
+non terminal statement, statement_no_short_if;
+non terminal statement_without_trailing_substatement;
+non terminal empty_statement;
+non terminal expression_statement, statement_expression;
+non terminal if_then_statement;
+non terminal if_then_else_statement, if_then_else_statement_no_short_if;
+non terminal while_statement, while_statement_no_short_if;
+non terminal return_statement;
+
+// 7
+// 表达式
+non terminal primary, primary_no_new_array;
+non terminal class_instance_creation_expression;
+non terminal argument_list_opt, argument_list;
+non terminal array_creation_expression;
+non terminal dim_exprs, dim_expr, dims_opt, dims;
+non terminal field_access, method_invocation, array_access;
+non terminal postfix_expression;
+non terminal unary_expression;
+non terminal multiplicative_expression, additive_expression;
+non terminal relational_expression, equality_expression;
+non terminal conditional_and_expression, conditional_or_expression;
+non terminal conditional_expression, assignment_expression;
+non terminal assignment;
+non terminal left_hand_side;
+non terminal expression_opt, expression;
+
+
+// 开始符号为goal
+start with goal;
+
+// == 开始符号可以产生一系列类
+goal ::=
+		class_declarations 
+ 			{: 
+                Hashtable forwards;
+                // 如果是第一次解析
+                if(parser.first){ 
+                    //
+                    forwards = Name.ForwardHashtable();
+                    
+                    int err = forwards.size();
+                    // 
+					if(err > 0) { 
+                        parser.errors = parser.errors + err;
+                        System.err.println("Error : Semantic error");
+                        System.err.println("  ==> CANNOT FIND CLASSES ("+err+"): "+forwards+"\n");
+					}
+			   }
+			:}
+	;
+
+// 2) Lexical Structure.
+// 字面值可以产生各种类型的字面值
+literal ::=
+		INTEGER_LITERAL
+	|	FLOATING_POINT_LITERAL
+	|	BOOLEAN_LITERAL
+	|	CHARACTER_LITERAL
+	|	STRING_LITERAL
+	|	NULL_LITERAL
+	;
+
+// 3) Types, Values, and Variables
+type	::=
+		primitive_type:t
+		{:	RESULT = t; :}
+	|	reference_type:t
+		{:	RESULT = t; :}
+	;
+primitive_type ::=
+		numeric_type:t
+		{:	RESULT = t; :}
+	|	BOOLEAN
+		{:	RESULT = Type.bool(); :}
+	;
+numeric_type ::= 
+		INT
+ 		{:	RESULT = Type.integer(); :}
+	|	CHAR
+ 		{:	RESULT = Type.character(); :}
+	|	FLOAT
+  		{:	RESULT = Type.floating(); :}
+	;
+reference_type ::=
+		name:n
+		{: 	Symb s = Env.get(n); 
+			   if(s == null) RESULT = Type.reference(Type.forwardName(n, parser.s.current_lexeme()));
+			   else RESULT = Type.reference(s.getType());
+		:}
+	|	array_type:t
+		{:	RESULT = Type.reference(t); :}
+	;
+array_type ::=
+		primitive_type:t dims
+		{:	RESULT = Type.array(0, t); :}
+	|	name:n dims
+		{: 	Symb s = Env.get(n); 
+			   if(s == null) { parser.sem_error(n,"UNKNOWN NAME");
+				    		 RESULT = Type.errortype();
+			   } 
+			   else RESULT = Type.array(0, s.getType());
+		:}
+	;
+
+// 4) Names
+name	::=
+		IDENTIFIER:n
+		{: 	RESULT = n;	:} 
+	|	name DOT IDENTIFIER
+	;
+
+modifiers_opt::=
+		{: 	RESULT = Boolean.valueOf(false); :}
+	|	PUBLIC
+		{: 	RESULT = Boolean.valueOf(true); :}
+	;
+
+// 5) Classes
+class_declarations ::= 
+	|	class_declarations class_declaration 
+	|	error
+		{:	 parser.report_error("class_declaration","WRONG"); :}
+		class_declaration
+	;
+
+// 5.1) Class Declaration
+class_declaration ::= 
+		modifiers_opt:m CLASS IDENTIFIER:n1 
+		{:	System.out.println("CLASS ENTRY: "+n1);
+			if(parser.first) if (Env.putClass(n1, m.booleanValue()) != 0) parser.sem_error(n1,"DUPLICATE CLASS NAME");
+ 			if(parser.second) { Env.next();
+						  Name c = (Env.get(n1)).getOwner();
+						  Name.putCurrentClass(c);
+			}
+		:}
+		class_body
+		{: 	System.out.println("CLASS EXIT: "+n1);
+			if(parser.first) Env.pop();
+			if(parser.second) Env.next();
+		:}
+	|	modifiers_opt:m CLASS IDENTIFIER:n1 EXTENDS IDENTIFIER:n2
+		{:	System.out.println("CLASS ENTRY: "+n1);
+			if(parser.first) switch (Env.putClass(n1, m.booleanValue(),n2)){ case 1: parser.sem_error(n1,"DUPLICATE CLASS NAME");
+							     								 break;
+													     case 2: parser.sem_error(n2,"UNKNOWN CLASS");
+					     }
+  			if(parser.second) { Env.next();
+						  Env.next();
+						  Name c = (Env.get(n1)).getOwner();
+						  Name.putCurrentClass(c);
+			}
+		:}
+		class_body
+		{: 	System.out.println("CLASS EXIT: "+n1);
+		 	if(parser.first) { Env.pop();
+						 Env.pop();
+			}
+			if(parser.second) { Env.next();
+						  Env.next();
+			}
+		:}
+	;
+class_body ::=
+		LBRACE class_body_declarations_opt:d RBRACE
+	;
+class_body_declarations_opt ::= 		
+	|	class_body_declarations
+	;
+class_body_declarations ::= 
+		class_body_declaration
+	|	class_body_declarations class_body_declaration
+	;
+class_body_declaration ::=
+		class_member_declaration
+	|	constructor_declaration
+	|	block
+	;
+class_member_declaration ::=
+		field_declaration
+	|	method_declaration
+  	| 	SEMICOLON
+	;
+
+// 5.2) Field Declarations
+field_declaration ::= 
+		modifiers_opt type variable_declarators SEMICOLON
+	|	modifiers_opt type error 
+			{: parser.report_error("variable_declarators","WRONG"); :}
+		SEMICOLON 
+	|	modifiers_opt type error 
+			{: parser.report_error("field_declaration","WRONG"); :} 
+		method_declaration 
+	;
+variable_declarators ::=
+		variable_declarator_id
+	|	variable_declarators COMMA M1 variable_declarator_id
+	|	error 
+		{: 	parser.report_error("variable_declarators","WRONG"); :} 
+		COMMA variable_declarator_id
+	;
+M1 ::=
+		{: RESULT = (Type)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-2)).value; :}
+	;
+variable_declarator_id ::=
+		IDENTIFIER:n
+		{:	if(parser.first) { Boolean m = (Boolean)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-2)).value;
+					 	 boolean mod = m == null ? false: m.booleanValue();	
+					 	 Type t = (Type)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-1)).value;
+					 	 Name c = Name.getCurrentClass();
+					 	 String cname = c.getName();
+					 	 Symb csymb = Env.get(cname);
+					 	 Symb s;
+					 	 if(csymb.isPublic()) s = new Symb(t, c, mod);
+					 	 else { if(mod) parser.warning(n, "PUBLIC FIELD DECLARED IN PRIVATE CLASS");
+				 	        	  s = new Symb(t, c, false);
+					 	 }
+					 	 if (!Env.putVar(n, s)) parser.sem_error(n,"DUPLICATE NAME");
+			}
+		:}
+	|	variable_declarator_id LBRACK RBRACK
+	;
+
+// 5.3) Method Declarations
+method_declaration ::=
+		method_header method_body
+	;
+method_header ::=
+		modifiers_opt:m type:t1 IDENTIFIER:n 
+ 		{:	if(parser.first) { if (!Env.put(n, null)) parser.sem_error(n,"DUPLICATE NAME");
+						 System.out.println(" METHOD ENTRY: "+n);
+		 			       Env.push();
+			}
+			if(parser.second) { System.out.println(" METHOD ENTRY: "+n);
+						  Env.next();
+			}
+		:}
+		LPAREN formal_parameter_list_opt:t2 RPAREN
+		{:	if(parser.first) { Name c = Name.getCurrentClass();
+						 String cname = c.getName();
+						 Symb csymb = Env.get(cname);
+						 Symb s;
+						 if(csymb.isPublic()) s = new Symb(Type.method(t2, t1), c, m.booleanValue());
+						 else { if(m.booleanValue()) parser.warning(n, "PUBLIC METHOD DECLARED IN PRIVATE CLASS");
+				 		        s = new Symb(Type.method(t2, t1), c, false);
+						 }
+						 Env.putSymb(n, s); 
+			}
+		:}
+	|	modifiers_opt:m VOID IDENTIFIER:n 
+		{:	if(parser.first) { if (!Env.put(n, null)) parser.sem_error(n,"DUPLICATE NAME");
+						 System.out.println(" METHOD ENTRY: "+n);
+		 				 Env.push();
+			}
+			if(parser.second) { System.out.println(" METHOD ENTRY: "+n);
+						  Env.next();
+			}
+		:}
+		LPAREN formal_parameter_list_opt:t RPAREN
+ 		{:	if(parser.first) { Name c = Name.getCurrentClass();
+						 String cname = c.getName();
+						 Symb csymb = Env.get(cname);
+						 Symb s;
+						 if(csymb.isPublic()) s = new Symb(Type.method(t, Type.voidtype()), c, m.booleanValue());
+						 else { if(m.booleanValue()) parser.warning(n, "PUBLIC METHOD DECLARED IN PRIVATE CLASS");
+				 		 	  s = new Symb(Type.method(t, Type.voidtype()), c, false);
+			 			 } 
+						 Env.putSymb(n, s); 
+			}
+		:}
+	|	error 
+		{: 	parser.report_error("method_header","WRONG");
+			System.out.println(" METHOD ENTRY: ");
+			Env.push();
+ 		:} 
+		LPAREN formal_parameter_list_opt RPAREN
+	;
+formal_parameter_list_opt ::=
+		{: RESULT = Type.voidtype(); :}
+	|	formal_parameter_list:t
+		{: RESULT = t; :}
+	;
+formal_parameter_list ::=
+		formal_parameter:t
+		{: RESULT = t; :}
+	|	formal_parameter_list:t1 COMMA formal_parameter:t2
+		{: RESULT = Type.product(t1, t2); :}
+	|	error 
+			{: parser.report_error("formal_parameter_list","WRONG"); :} 
+		formal_parameter
+	;
+formal_parameter ::=
+		type:t variable_declarator_id
+		{: RESULT = t; :}
+	;
+method_body ::=
+		LBRACE block_statements_opt RBRACE
+		{: 	System.out.println(" METHOD EXIT");
+			if(parser.first) Env.pop();
+			if(parser.second) Env.next(); 
+		:}
+	|	SEMICOLON
+		{: 	System.out.println(" METHOD EXIT");
+			if(parser.first) Env.pop();
+			if(parser.second) Env.next(); 
+		:}
+	;
+
+// 5.4) Constructor Declarations
+constructor_declaration ::=
+		constructor_declarator constructor_body
+	;
+constructor_declarator ::=
+		modifiers_opt:m IDENTIFIER:n 
+		{:	if(parser.first) { if (!Env.put(n, null)) parser.sem_error(n,"DUPLICATE NAME");
+						 System.out.println(" CONSTRUCTOR ENTRY: "+n);
+		 				 Env.push();
+			}
+			if(parser.second) { System.out.println(" CONSTRUCTOR ENTRY: "+n);
+						  Env.next();
+			}
+		:}
+		LPAREN formal_parameter_list_opt:t RPAREN
+		{:	if(parser.first) { Name c = Name.getCurrentClass();
+						 String cname = c.getName();
+						 Symb csymb = Env.get(cname);
+						 Symb s;
+						 if(csymb.isPublic()) s = new Symb(Type.constructor(t, Type.reference(Type.getName(n))), c, m.booleanValue());
+						 else { if(m.booleanValue()) parser.warning(n, "PUBLIC CONSTRUCTOR DECLARED IN PRIVATE CLASS");
+				 		        s = new Symb(Type.constructor(t, Type.reference(Type.getName(n))), c, false);
+						 }	
+						 Env.putSymb(n, s);
+			} 
+		:}
+	;
+constructor_body ::=
+		LBRACE explicit_constructor_invocation block_statements_opt RBRACE
+		{: 	System.out.println(" CONSTRUCTOR EXIT");
+			if(parser.first) Env.pop(); 
+			if(parser.second) Env.next();
+		:}
+	|	LBRACE block_statements_opt RBRACE
+		{: 	System.out.println(" CONSTRUCTOR EXIT");
+			if(parser.first) Env.pop(); 
+			if(parser.second) Env.next();
+		:}
+	;
+explicit_constructor_invocation ::=
+		THIS LPAREN argument_list_opt RPAREN SEMICOLON
+	|	SUPER LPAREN argument_list_opt RPAREN SEMICOLON
+	|	primary DOT THIS LPAREN argument_list_opt RPAREN SEMICOLON
+	|	primary DOT SUPER LPAREN argument_list_opt RPAREN SEMICOLON
+	;
+
+// 6) Blocks and Statements
+block ::=
+		LBRACE
+ 		{: 	System.out.println(" BLOCK ENTRY");
+			if(parser.first) Env.push(); 
+			if(parser.second) Env.next();
+		:}
+		block_statements_opt
+ 		{: 	System.out.println(" BLOCK EXIT");
+			if(parser.first) Env.pop(); 
+			if(parser.second) Env.next();
+		:}
+		RBRACE
+//	|	LBRACE error 
+//			{: parser.report_error("block","WRONG"); :} 
+//		RBRACE 
+	;
+block_statements_opt ::=
+	|	block_statements
+	;
+block_statements ::=
+		block_statement
+	|	block_statements block_statement
+	|	error 
+			{: parser.report_error("block_statements","WRONG"); :} 
+		block_statement 
+	;
+block_statement ::=
+		local_variable_declaration_statement
+	|	statement
+	;
+local_variable_declaration_statement ::=
+		type variable_declarators SEMICOLON
+	|	type error 
+			{: parser.report_error("local_variable_declaration_statement","WRONG"); :} 
+		SEMICOLON
+	;
+statement ::=
+		statement_without_trailing_substatement
+	|	if_then_statement
+	|	if_then_else_statement
+	|	while_statement
+	;
+statement_no_short_if ::=
+		statement_without_trailing_substatement
+	|	if_then_else_statement_no_short_if
+	|	while_statement_no_short_if
+	;
+statement_without_trailing_substatement ::=
+		block
+	|	empty_statement
+	|	expression_statement
+	|	return_statement
+	;
+empty_statement ::=
+		SEMICOLON
+	;
+expression_statement ::=
+		statement_expression SEMICOLON
+	;
+statement_expression ::=
+		assignment
+	|	method_invocation
+	|	class_instance_creation_expression
+	;
+if_then_statement ::=
+		IF LPAREN expression RPAREN statement
+	|	IF error 
+			{: parser.report_error("if_then_statement","WRONG"); :} 
+		RPAREN statement
+	;
+if_then_else_statement ::=
+		IF LPAREN expression RPAREN statement_no_short_if 
+			ELSE statement
+	|	IF LPAREN error 
+			{: parser.report_error("expression","WRONG"); :} 
+		RPAREN statement_no_short_if ELSE statement
+	;
+if_then_else_statement_no_short_if ::=
+		IF LPAREN expression RPAREN statement_no_short_if
+			ELSE statement_no_short_if
+	;
+while_statement ::=
+		WHILE LPAREN expression RPAREN statement
+	|	WHILE error 
+			{: parser.report_error("expression","WRONG"); :} 
+		RPAREN statement
+	;
+while_statement_no_short_if ::=
+		WHILE LPAREN expression RPAREN statement_no_short_if
+	;
+return_statement ::=
+		RETURN expression_opt SEMICOLON
+      ;
+
+// 7) Expressions
+primary ::=	
+		primary_no_new_array
+	|	array_creation_expression
+	;
+primary_no_new_array ::=
+		literal
+	|	THIS
+	|	LPAREN expression RPAREN
+	|	class_instance_creation_expression
+	|	field_access
+	|	method_invocation
+	|	array_access
+	|	primitive_type DOT CLASS
+	|	VOID DOT CLASS
+	|	array_type DOT CLASS
+	|	name DOT CLASS
+	|	name DOT THIS
+	|	LPAREN error
+			{: parser.report_error("primary_no_new_array","WRONG"); :} 
+		RPAREN
+	|	error
+ 			{: parser.report_error("primary_no_new_array","WRONG"); :}
+		DOT THIS 
+	;
+class_instance_creation_expression ::=
+		NEW name LPAREN argument_list_opt RPAREN class_body_opt
+	|	primary DOT NEW IDENTIFIER
+			LPAREN argument_list_opt RPAREN class_body_opt
+	;
+class_body_opt ::=
+	|	class_body
+;
+argument_list_opt ::=
+	|	argument_list
+	;
+argument_list ::=
+		expression
+	|	argument_list COMMA expression
+	|	error 
+			{: parser.report_error("argument_list","WRONG"); :} 
+		expression
+	;
+array_creation_expression ::=
+		NEW primitive_type dim_exprs dims_opt
+	|	NEW name dim_exprs dims_opt
+	;
+dim_exprs ::=
+		dim_expr
+	|	dim_exprs dim_expr
+	|	error 
+			{: parser.report_error("dim_expr","WRONG"); :} 
+		dim_expr
+	;
+dim_expr ::=	LBRACK expression RBRACK
+	;
+dims_opt ::=
+	|	dims
+	;
+dims ::=
+		LBRACK RBRACK
+	|	dims LBRACK RBRACK
+	;
+field_access ::=
+		primary DOT IDENTIFIER
+	|	SUPER DOT IDENTIFIER
+	|	name DOT SUPER DOT IDENTIFIER
+	;
+method_invocation ::=
+		name LPAREN argument_list_opt RPAREN
+	|	primary DOT IDENTIFIER LPAREN argument_list_opt RPAREN
+	|	SUPER DOT IDENTIFIER LPAREN argument_list_opt RPAREN
+	|	name DOT SUPER DOT IDENTIFIER LPAREN argument_list_opt RPAREN
+	;
+array_access ::=
+		name LBRACK expression RBRACK
+	|	primary_no_new_array LBRACK expression RBRACK
+	;
+postfix_expression ::=
+		primary
+	|	name
+	|	AT name
+	;
+unary_expression ::=
+		postfix_expression
+	|	NOT unary_expression
+	|	PLUS unary_expression
+	|	MINUS unary_expression
+	;
+multiplicative_expression ::=
+		unary_expression
+	|	multiplicative_expression MULT unary_expression
+	|	multiplicative_expression DIV unary_expression
+	|	multiplicative_expression MOD unary_expression
+	|	error 
+			{: parser.report_error("multiplicative_expression","WRONG"); :} 
+		MULT unary_expression
+	|	error 
+			{: parser.report_error("multiplicative_expression","WRONG"); :} 
+		DIV unary_expression	
+	|	error 
+			{: parser.report_error("multiplicative_expression","WRONG"); :} 
+		MOD unary_expression
+	;
+additive_expression ::=
+		multiplicative_expression
+	|	additive_expression PLUS multiplicative_expression
+	|	additive_expression MINUS multiplicative_expression
+	;
+relational_expression ::=
+		additive_expression
+	|	relational_expression LT additive_expression
+	|	relational_expression GT additive_expression
+	|	relational_expression LTEQ additive_expression
+	|	relational_expression GTEQ additive_expression
+	|	error 
+			{: parser.report_error("relational_expression","WRONG"); :} 
+		LT additive_expression
+	|	error 
+			{: parser.report_error("relational_expression","WRONG"); :} 
+		GT additive_expression
+	|	error 
+			{: parser.report_error("relational_expression","WRONG"); :} 
+		LTEQ additive_expression
+	|	error 
+			{: parser.report_error("relational_expression","WRONG"); :} 
+		GTEQ additive_expression
+	;
+equality_expression ::=
+		relational_expression
+	|	equality_expression EQEQ relational_expression
+	|	equality_expression NOTEQ relational_expression
+	|	error 
+			{: parser.report_error("equality_expression","WRONG"); :} 
+		EQEQ relational_expression
+	|	error 
+			{: parser.report_error("equality_expression","WRONG"); :} 
+		NOTEQ relational_expression
+	;
+conditional_and_expression ::=
+		equality_expression
+	|	conditional_and_expression ANDAND equality_expression
+	|	error 
+			{: parser.report_error("conditional_and_expression","WRONG"); :} 
+		ANDAND equality_expression
+	;
+conditional_or_expression ::=
+		conditional_and_expression
+	|	conditional_or_expression OROR conditional_and_expression
+	|	error 
+			{: parser.report_error("conditional_or_expression","WRONG"); :} 
+		OROR conditional_and_expression
+	;
+conditional_expression ::=
+		conditional_or_expression
+	|	conditional_or_expression QUESTION expression COLON conditional_expression
+	|	error 
+			{: parser.report_error("conditional_expression","WRONG"); :} 
+		QUESTION expression COLON conditional_or_expression
+	;
+assignment_expression ::=
+		conditional_expression
+	|	assignment
+	;
+assignment ::=
+		left_hand_side EQ assignment_expression
+	|	error 
+			{: parser.report_error("left_hand_side","WRONG"); :} 
+		EQ assignment_expression
+	;
+left_hand_side ::=
+		name
+	|	field_access
+	|	array_access
+	;
+expression_opt ::=
+	|	expression
+	;
+expression ::=	assignment_expression
+	;
