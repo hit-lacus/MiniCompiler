@@ -326,7 +326,7 @@ array_type ::=
 
 // 4) Names
 // name可以产生标识符、name + DOT + 标识符
-// name即为以英语句号分割的，Java标识符的组合
+// name即为以英语句号分割的Java标识符的组合
 name    ::=
         IDENTIFIER:n
         {:  RESULT = n; :} 
@@ -459,27 +459,58 @@ variable_declarators ::=
         COMMA variable_declarator_id
     ;
 
+// http://staff.polito.it/silvano.rivoira/HowToWriteYourOwnCompiler_code/Parser/mjavac.java
+// 查看上个链接，这是由cup生成的语法分析器，或许您注意到在生成的代码里会有一个名为CUP$mjavac$actions的类，
+// 这是一个用来封装产生式的action代码而生成的一个类
+// 这个类结构比较简单，只包含一个成员变量parser、一个构造方法、一个成员方法CUP$mjavac$do_action，方法CUP$mjavac$do_action签名如下
+// public final java_cup.runtime.Symbol CUP$mjavac$do_action(
+//    int                        CUP$mjavac$act_num,
+//    java_cup.runtime.lr_parser CUP$mjavac$parser,
+//    java.util.Stack            CUP$mjavac$stack,
+//    int                        CUP$mjavac$top
+// )
+//
+// 您还会注意到，本方法在mjavac类中，只被
+//
+// /** Perform a bit of user supplied action code (supplied by generated 
+// *  subclass).  Actions are indexed by an internal action number assigned
+// *  at parser generation time.
+// *
+// * @param act_num   the internal index of the action to be performed.
+// * @param parser    the parser object we are acting for.
+// * @param stack     the parse stack of that object.
+// * @param top       the index of the top element of the parse stack.
+// */
+// public java_cup.runtime.Symbol do_action(int act_num,
+//              java_cup.runtime.lr_parser parser, java.util.Stack stack, int top)
+// 
+// 通过查看mjavac的超类lr_parser源代码，您也知道do_action方法会被parse方法调用
+
 M1 ::=
-        {: RESULT = (Type)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-2)).value; :}
+        {: 
+            RESULT = (Type)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-2)).value; 
+        :}
     ;
 // 变量声明单元可以产生标识符 、变量声明单元 + 上下方括号
 variable_declarator_id ::=
         IDENTIFIER:n
         {:  
+            // 如果是第一遍解析
             if(parser.first) {
-                Boolean m = (Boolean)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-2)).value;
-                boolean mod = m == null ? false: m.booleanValue(); 
+                
+                Boolean m = (Boolean)  ( (java_cup.runtime.Symbol) CUP$mjavac$stack.elementAt(CUP$mjavac$top-2) ).value;
+                boolean mod = ( m == null ) ? false: m.booleanValue(); 
                 Type t = (Type)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-1)).value;
                 Name c = Name.getCurrentClass();
                 String cname = c.getName();
-                Symb csymb = Env.get(cname);
-                Symb s;
+                Context csymb = Context.get(cname);
+                Context s;
                 if(csymb.isPublic()) 
-                    s = new Symb(t, c, mod);
+                    s = new Context(t, c, mod);
                 else { 
                     if(mod) 
                         parser.warning(n, "PUBLIC FIELD DECLARED IN PRIVATE CLASS");
-                    s = new Symb(t, c, false);
+                    s = new Context(t, c, false);
                 }
                 if (!Env.putVar(n, s)) parser.sem_error(n,"DUPLICATE NAME");
             }
@@ -497,27 +528,43 @@ method_declaration ::=
     
 // 方法头部可以产生修饰符选项 + 类型（返回值类型） + 标识符（方法名） + 左圆括号 + 形式参数列表选项 + 右括号
 method_header ::=
+
         modifiers_opt:m type:t1 IDENTIFIER:n 
-        {:  if(parser.first) { if (!Env.put(n, null)) parser.sem_error(n,"DUPLICATE NAME");
-                         System.out.println(" METHOD ENTRY: "+n);
-                           Env.push();
+        {:  
+            if(parser.first) { 
+                if (!Context.put(n, null)) 
+                    parser.sem_error(n,"方法名重复");
+                System.out.println("进入方法声明: "+n);
+                Context.push();
             }
-            if(parser.second) { System.out.println(" METHOD ENTRY: "+n);
-                          Env.next();
+            if(parser.second) { 
+                System.out.println("进入方法声明: "+n);
+                Context.next();
             }
         :}
         LPAREN formal_parameter_list_opt:t2 RPAREN
-        {:  if(parser.first) { Name c = Name.getCurrentClass();
-                         String cname = c.getName();
-                         Symb csymb = Env.get(cname);
-                         Symb s;
-                         if(csymb.isPublic()) s = new Symb(Type.method(t2, t1), c, m.booleanValue());
-                         else { if(m.booleanValue()) parser.warning(n, "PUBLIC METHOD DECLARED IN PRIVATE CLASS");
-                                s = new Symb(Type.method(t2, t1), c, false);
-                         }
-                         Env.putSymb(n, s); 
+        {:  
+            if(parser.first) { 
+                Name c = Name.getCurrentClass();
+                String cname = c.getName();
+                // 获得方法所在类
+                JavaSymbol csymb = Context.get(cname);
+                JavaSymbol s;
+                // 判断此类是否为公共类
+                if( csymb.isPublic()) 
+                    s = new JavaSymbol(Type.method(t2, t1), c, m.booleanValue());
+                else { 
+                    if(m.booleanValue()) 
+                        parser.warning(n, "PUBLIC METHOD DECLARED IN PRIVATE CLASS");
+                    s = new JavaSymbol(Type.method(t2, t1), c, false);
+                }
+                // 将方法添加到
+                Context.putSymb(n, s); 
             }
         :}
+        
+        
+        
     |   modifiers_opt:m VOID IDENTIFIER:n 
         {:  if(parser.first) { if (!Env.put(n, null)) parser.sem_error(n,"DUPLICATE NAME");
                          System.out.println(" METHOD ENTRY: "+n);

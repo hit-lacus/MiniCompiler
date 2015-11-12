@@ -32,7 +32,7 @@
 		<dependency>
 			<groupId>edu.princeton.cup</groupId>
 			<artifactId>java-cup</artifactId>
-			<version>10k</version>
+			<version>11b</version>
 		</dependency>
 
 		<dependency>
