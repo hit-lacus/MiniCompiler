@@ -1,41 +1,43 @@
 import java_cup.runtime.*;
 import java.io.*;
 import java.util.*;
-import symtab.*;
-import type.*;
 
-// ============================ �����ӵ��﷨�������Ĵ���� =============================
+import hit.mc.type.*;
+import hit.mc.*;
+
+// =================================================================
+// =================== 以下代码段将添加到语法分析器 ================
 parser code  {: 
-    /** �ʷ�������*/
+    /** 词法分析器*/
     public static Scanner s;
-    /** �������*/
+    /** 错误次数*/
     public static int errors = 0;
-    /** �������*/
+    /** 警告次数*/
     public static int warnings = 0;
     public static boolean first = true, second = false;
-    /** ������*/
+    /** 主方法*/
     public static void main(String argv[]) {
-        /** ������������б���*/
+        /** 对输入参数进行遍历*/
         for(int i = 0; i < argv.length; i++) {
             try{
-                //�״η���
-                System.out.println("\n...�������ű� ["+argv[i]+"]...\n");
+                //首次分析
+                System.out.println("\n...创建符号表 ["+argv[i]+"]...\n");
                 s = new Scanner(new FileReader(argv[i]));
                 mjavac p = new mjavac(s);
                 p.parse();
-                System.out.println("������� = " + errors + ".");
-                System.out.println("������� = " + warnings + ".");
+                System.out.println("错误个数 = " + errors + ".");
+                System.out.println("警告个数 = " + warnings + ".");
                 Type.printTypes();
                 first = false;
                 second = true;
                 
-                //���еڶ��η���
-                System.out.println("\n...������� ["+argv[i]+"]...\n");
+                //进行第二次分析
+                System.out.println("\n...语义分析 ["+argv[i]+"]...\n");
                 s = new Scanner(new FileReader(argv[i]));
                 p = new mjavac(s);
                 p.parse();
-                System.out.println("Number of errors = " + errors + ".");
-                System.out.println("Number of warnings = " + warnings + ".");
+                System.out.println("错误个数 = " + errors + ".");
+                System.out.println("警告个数 = " + warnings + ".");
                 Type.printTypes();
             }catch(Exception e) {
                 e.printStackTrace(System.out);
@@ -43,7 +45,7 @@ parser code  {:
             }
         }
     }
-    /** �������*/
+    /** 报告错误*/
     public void report_error(String message, Object info) {
         if (info instanceof String){
             errors++; 
@@ -59,22 +61,22 @@ parser code  {:
             System.err.println(m);
         }
     }
-    /** �������*/
+    /** 语义错误*/
     public void sem_error(String lexeme, String message) {
         errors++;
         System.err.println("Error "+ s.current_lexeme() + " : Semantic error");
         System.err.println("  "+ errors + "==> " + message + ": "+ lexeme + "\n");
     }
-    /** ��������*/
+    /** 发出警告*/
     public void warning(String lexeme, String message) {
         warnings++;
-     	System.err.println("Warning "+ s.current_lexeme());
+        System.err.println("Warning "+ s.current_lexeme());
         System.err.println("  "+ warnings + "==> " + message + ": "+ lexeme + "\n");
     } 
-    /** �������ش���*/
+    /** 报告严重错误*/
     public void report_fatal_error(String message, Object info) {
-    	report_error(message, info);
-    	throw new RuntimeException("Fatal Syntax Error");
+        report_error(message, info);
+        throw new RuntimeException("Fatal Syntax Error");
     }
 :};
 
@@ -86,15 +88,16 @@ action code {:
 
 
 init with {:
-	if(first) {	Type.initTypes();
-			Env.initFirst();
-	}
-	if(second) Env.initSecond();
+    if(first) { 
+        Type.initTypes();
+        Context.initFirst();
+    }
+    if(second) Context.initSecond();
 :};
 
 
 // =================================================================
-// ============================ �ս�� =============================
+// ============================ 终结符 =============================
 
 terminal BOOLEAN; // primitive_type
 terminal INT, CHAR, FLOAT; // numeric_type
@@ -128,18 +131,18 @@ terminal java.lang.String IDENTIFIER; // name
 terminal NULL_LITERAL;
 
 // =================================================================
-// ============================ ���ս�� ===========================
+// ============================ 非终结符 ===========================
 
 // 1) The Syntactic Grammar
-// ��ʼ����
+// 开始符号
 non terminal goal;
 
 // 2) Lexical Structure
-// ����ֵ
+// 字面值
 non terminal literal;
 
 // 3) Types, Values, and Variables
-// ���͡�ֵ������
+// 类型、值、变量
 non terminal Type type, primitive_type, numeric_type;
 non terminal Type reference_type;
 non terminal Type array_type;
@@ -150,11 +153,11 @@ non terminal String name;
 non terminal Type M1;
 
 // 5
-// ��
+// 类
 non terminal class_declarations;
 
 // 5.1
-// ��ĳ�Ա
+// 类的成员
 non terminal class_declaration;
 non terminal class_body, class_body_opt;
 non terminal Boolean modifiers_opt;
@@ -162,25 +165,25 @@ non terminal class_body_declarations, class_body_declarations_opt;
 non terminal class_body_declaration, class_member_declaration;
 
 // 5.2
-// ��Ա����
+// 成员变量
 non terminal field_declaration, variable_declarators;
 non terminal variable_declarator_id;
 
 // 5.3
-// ��Ա����
+// 成员方法
 non terminal method_declaration, method_header;
 non terminal Type formal_parameter_list_opt, formal_parameter_list;
 non terminal Type formal_parameter;
 non terminal method_body;
 
 // 5.4
-// ���캯��
+// 构造函数
 non terminal constructor_declaration, constructor_declarator;
 non terminal constructor_body;
 non terminal explicit_constructor_invocation;
 
 // 6
-// ���������
+// 代码块和语句
 non terminal block;
 non terminal block_statements_opt, block_statements, block_statement;
 non terminal local_variable_declaration_statement;
@@ -194,7 +197,7 @@ non terminal while_statement, while_statement_no_short_if;
 non terminal return_statement;
 
 // 7
-// ����ʽ
+// 表达式
 non terminal primary, primary_no_new_array;
 non terminal class_instance_creation_expression;
 non terminal argument_list_opt, argument_list;
@@ -212,604 +215,774 @@ non terminal left_hand_side;
 non terminal expression_opt, expression;
 
 
-// ��ʼ����Ϊgoal
+// =================================================================
+// ============================ 产生式 =============================
+// =================================================================
+
+// 开始符号为goal
 start with goal;
 
-// == ��ʼ���ſ��Բ���һϵ����
+
+//  开始符号可以产生一系列类的声明
 goal ::=
-		class_declarations 
- 			{: 
+        class_declarations 
+            {: 
                 Hashtable forwards;
-                // ����ǵ�һ�ν���
+                // 如果是第一次解析
                 if(parser.first){ 
                     //
                     forwards = Name.ForwardHashtable();
                     
                     int err = forwards.size();
                     // 
-					if(err > 0) { 
+                    if(err > 0) { 
                         parser.errors = parser.errors + err;
                         System.err.println("Error : Semantic error");
                         System.err.println("  ==> CANNOT FIND CLASSES ("+err+"): "+forwards+"\n");
-					}
-			   }
-			:}
-	;
+                    }
+               }
+            :}
+    ;
 
 // 2) Lexical Structure.
-// ����ֵ���Բ����������͵�����ֵ
+
+// 字面值可以产生各种类型的字面值
 literal ::=
-		INTEGER_LITERAL
-	|	FLOATING_POINT_LITERAL
-	|	BOOLEAN_LITERAL
-	|	CHARACTER_LITERAL
-	|	STRING_LITERAL
-	|	NULL_LITERAL
-	;
+        INTEGER_LITERAL
+    |   FLOATING_POINT_LITERAL
+    |   BOOLEAN_LITERAL
+    |   CHARACTER_LITERAL
+    |   STRING_LITERAL
+    |   NULL_LITERAL
+    ;
 
 // 3) Types, Values, and Variables
-type	::=
-		primitive_type:t
-		{:	RESULT = t; :}
-	|	reference_type:t
-		{:	RESULT = t; :}
-	;
+
+// 类型可以产生基本类型和引用类型
+type    ::=
+        primitive_type:t
+        {:  RESULT = t; :}
+    |   reference_type:t
+        {:  RESULT = t; :}
+    ;
+    
+// 基本类型可以产生数字类型和布尔类型
 primitive_type ::=
-		numeric_type:t
-		{:	RESULT = t; :}
-	|	BOOLEAN
-		{:	RESULT = Type.bool(); :}
-	;
+        numeric_type:t
+        {:  RESULT = t; :}
+    |   BOOLEAN
+        {:  RESULT = Type.bool(); :}
+    ;
+    
+// 数字类型可以产生整型、字符型、浮点型
 numeric_type ::= 
-		INT
- 		{:	RESULT = Type.integer(); :}
-	|	CHAR
- 		{:	RESULT = Type.character(); :}
-	|	FLOAT
-  		{:	RESULT = Type.floating(); :}
-	;
+        INT
+        {:  RESULT = Type.integer(); :}
+    |   CHAR
+        {:  RESULT = Type.character(); :}
+    |   FLOAT
+        {:  RESULT = Type.floating(); :}
+    ;
+    
+    
+// 引用类型可以产生name和数组类型
 reference_type ::=
-		name:n
-		{: 	Symb s = Env.get(n); 
-			   if(s == null) RESULT = Type.reference(Type.forwardName(n, parser.s.current_lexeme()));
-			   else RESULT = Type.reference(s.getType());
-		:}
-	|	array_type:t
-		{:	RESULT = Type.reference(t); :}
-	;
+        name:n
+        {:  
+                // 尝试从当前上下文获得该符号
+                JavaSymbol s = Context.get(n); 
+                // 若获得失败，则重新构造一个新的引用类型
+                if(s == null) 
+                    RESULT = Type.reference(Type.forwardName(n, parser.s.current_lexeme()));
+                // 若获得成功，则从符号表取出类型
+                else 
+                    RESULT = Type.reference(s.getType());
+        :}
+    |   array_type:t
+        {:  RESULT = Type.reference(t); :}
+    ;
+    
+    
+// 数组类型可以产生基本类型 + 维数、name + 维数
 array_type ::=
-		primitive_type:t dims
-		{:	RESULT = Type.array(0, t); :}
-	|	name:n dims
-		{: 	Symb s = Env.get(n); 
-			   if(s == null) { parser.sem_error(n,"UNKNOWN NAME");
-				    		 RESULT = Type.errortype();
-			   } 
-			   else RESULT = Type.array(0, s.getType());
-		:}
-	;
+        // 原始类型数组
+        primitive_type:t dims
+        {:  RESULT = Type.array(0, t); :}
+        // 引用类型数组
+        
+    |   name:n dims
+        {:  
+            // 尝试获得这种引用类型
+            JavaSymbol s = Context.get(n); 
+            // 获得失败，则抛出语义错误
+            if(s == null) { 
+                parser.sem_error(n,"UNKNOWN NAME");
+                RESULT = Type.errortype();
+            } 
+            // 获得成功，则返回一个数组对象
+            else RESULT = Type.array(0, s.getType());
+        :}
+    ;
 
 // 4) Names
-name	::=
-		IDENTIFIER:n
-		{: 	RESULT = n;	:} 
-	|	name DOT IDENTIFIER
-	;
+// name可以产生标识符、name + DOT + 标识符
+// name即为以英语句号分割的，Java标识符的组合
+name    ::=
+        IDENTIFIER:n
+        {:  RESULT = n; :} 
+    |   name DOT IDENTIFIER
+    ;
 
+// 修饰符可以是public或者无
 modifiers_opt::=
-		{: 	RESULT = Boolean.valueOf(false); :}
-	|	PUBLIC
-		{: 	RESULT = Boolean.valueOf(true); :}
-	;
+        {:  RESULT = Boolean.valueOf(false); :}
+    |   PUBLIC
+        {:  RESULT = Boolean.valueOf(true); :}
+    ;
 
 // 5) Classes
+// 类的声明系列可以产生类的类的声明系列 + 类的声明、空
 class_declarations ::= 
-	|	class_declarations class_declaration 
-	|	error
-		{:	 parser.report_error("class_declaration","WRONG"); :}
-		class_declaration
-	;
+    |   class_declarations class_declaration 
+    |   error
+        {:   parser.report_error("class_declaration","WRONG"); :}
+        class_declaration
+    ;
 
 // 5.1) Class Declaration
+// 类的声明可以产生修饰符选项 + 类 + 标识符 + 类主体、修饰符选项 + 类 + 标识符 + 继承于 + 超类 + 类主体
 class_declaration ::= 
-		modifiers_opt:m CLASS IDENTIFIER:n1 
-		{:	System.out.println("CLASS ENTRY: "+n1);
-			if(parser.first) if (Env.putClass(n1, m.booleanValue()) != 0) parser.sem_error(n1,"DUPLICATE CLASS NAME");
- 			if(parser.second) { Env.next();
-						  Name c = (Env.get(n1)).getOwner();
-						  Name.putCurrentClass(c);
-			}
-		:}
-		class_body
-		{: 	System.out.println("CLASS EXIT: "+n1);
-			if(parser.first) Env.pop();
-			if(parser.second) Env.next();
-		:}
-	|	modifiers_opt:m CLASS IDENTIFIER:n1 EXTENDS IDENTIFIER:n2
-		{:	System.out.println("CLASS ENTRY: "+n1);
-			if(parser.first) switch (Env.putClass(n1, m.booleanValue(),n2)){ case 1: parser.sem_error(n1,"DUPLICATE CLASS NAME");
-							     								 break;
-													     case 2: parser.sem_error(n2,"UNKNOWN CLASS");
-					     }
-  			if(parser.second) { Env.next();
-						  Env.next();
-						  Name c = (Env.get(n1)).getOwner();
-						  Name.putCurrentClass(c);
-			}
-		:}
-		class_body
-		{: 	System.out.println("CLASS EXIT: "+n1);
-		 	if(parser.first) { Env.pop();
-						 Env.pop();
-			}
-			if(parser.second) { Env.next();
-						  Env.next();
-			}
-		:}
-	;
+        modifiers_opt:m CLASS IDENTIFIER:n1 
+        {:  
+            System.out.println("进入类的声明: " + n1);
+            // 第一遍扫描时，
+            if(parser.first) 
+                // 将类添加到上下文之中
+                if (Context.putClass(n1, m.booleanValue()) != 0) 
+                    parser.sem_error(n1,"DUPLICATE CLASS NAME");
+            
+            // 第二遍扫描时，
+            if(parser.second) { 
+                // 切换当前上下文
+                Context.next();
+                // 获得n1对应JavaSymbol的Name
+                Name c = (Context.get(n1)).getOwner();
+                // 切换当前Name
+                Name.putCurrentClass(c);
+            }
+        :}
+        class_body
+        {:  
+            System.out.println("离开类的声明: "+n1);
+            // 第一遍扫描，切换上下文
+            if(parser.first) Context.pop();
+            // 第二遍扫描，切换上下文
+            if(parser.second) Context.next();
+        :}
+    
+    |   modifiers_opt:m CLASS IDENTIFIER:n1 EXTENDS IDENTIFIER:n2
+        {:  
+            System.out.println("CLASS ENTRY: "+n1);
+            if(parser.first) 
+                switch (Context.putClass(n1, m.booleanValue(),n2)){ 
+                    case 1: parser.sem_error(n1,"DUPLICATE CLASS NAME");
+                            break;
+                    case 2: parser.sem_error(n2,"UNKNOWN CLASS");
+                }
+            if(parser.second) { 
+                Context.next();
+                Context.next();
+                Name c = (Context.get(n1)).getOwner();
+                Name.putCurrentClass(c);
+            }
+        :}
+        class_body
+        {:  
+            System.out.println("CLASS EXIT: "+n1);
+            if(parser.first) { 
+                Context.pop();
+                Context.pop();
+            }
+            if(parser.second) { 
+                Context.next();
+                Context.next();
+            }
+        :}
+    ;
+    
+// 类的主体可以产生左花括号 + 类成员声明系列选项 + 右花括号
 class_body ::=
-		LBRACE class_body_declarations_opt:d RBRACE
-	;
-class_body_declarations_opt ::= 		
-	|	class_body_declarations
-	;
+        LBRACE class_body_declarations_opt:d RBRACE
+    ;
+
+// 类成员声明系列选项可以产生空、类成员声明系列
+class_body_declarations_opt ::=         
+    |   class_body_declarations
+    ;
+// 类成员声明系列可以产生类成员声明、类成员声明系列 + 类成员声明
 class_body_declarations ::= 
-		class_body_declaration
-	|	class_body_declarations class_body_declaration
-	;
+        class_body_declaration
+    |   class_body_declarations class_body_declaration
+    ;
+// 类成员声明可以产生类成员、构造函数、代码块
 class_body_declaration ::=
-		class_member_declaration
-	|	constructor_declaration
-	|	block
-	;
+        class_member_declaration
+    |   constructor_declaration
+    |   block
+    ;
+// 类成员可以产生成员变量、成员方法、分号
 class_member_declaration ::=
-		field_declaration
-	|	method_declaration
-  	| 	SEMICOLON
-	;
+        field_declaration
+    |   method_declaration
+    |   SEMICOLON
+    ;
 
 // 5.2) Field Declarations
+// 成员变量
+
+// 成员变量可以产生修饰符选项 + 类型 + 变量声明系列 + 分号、
 field_declaration ::= 
-		modifiers_opt type variable_declarators SEMICOLON
-	|	modifiers_opt type error 
-			{: parser.report_error("variable_declarators","WRONG"); :}
-		SEMICOLON 
-	|	modifiers_opt type error 
-			{: parser.report_error("field_declaration","WRONG"); :} 
-		method_declaration 
-	;
+        modifiers_opt type variable_declarators SEMICOLON
+    |   modifiers_opt type error 
+            {: parser.report_error("variable_declarators","WRONG"); :}
+        SEMICOLON 
+    |   modifiers_opt type error 
+            {: parser.report_error("field_declaration","WRONG"); :} 
+        method_declaration 
+    ;
+// 变量声明系列可以产生变量声明单元、变量声明系列  + 逗号 + M1 + 变量声明单元、抛出异常
 variable_declarators ::=
-		variable_declarator_id
-	|	variable_declarators COMMA M1 variable_declarator_id
-	|	error 
-		{: 	parser.report_error("variable_declarators","WRONG"); :} 
-		COMMA variable_declarator_id
-	;
+        variable_declarator_id
+    |   variable_declarators COMMA M1 variable_declarator_id
+    |   error 
+        {:  parser.report_error("variable_declarators","WRONG"); :} 
+        COMMA variable_declarator_id
+    ;
+
 M1 ::=
-		{: RESULT = (Type)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-2)).value; :}
-	;
+        {: RESULT = (Type)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-2)).value; :}
+    ;
+// 变量声明单元可以产生标识符 、变量声明单元 + 上下方括号
 variable_declarator_id ::=
-		IDENTIFIER:n
-		{:	if(parser.first) { Boolean m = (Boolean)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-2)).value;
-					 	 boolean mod = m == null ? false: m.booleanValue();	
-					 	 Type t = (Type)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-1)).value;
-					 	 Name c = Name.getCurrentClass();
-					 	 String cname = c.getName();
-					 	 Symb csymb = Env.get(cname);
-					 	 Symb s;
-					 	 if(csymb.isPublic()) s = new Symb(t, c, mod);
-					 	 else { if(mod) parser.warning(n, "PUBLIC FIELD DECLARED IN PRIVATE CLASS");
-				 	        	  s = new Symb(t, c, false);
-					 	 }
-					 	 if (!Env.putVar(n, s)) parser.sem_error(n,"DUPLICATE NAME");
-			}
-		:}
-	|	variable_declarator_id LBRACK RBRACK
-	;
+        IDENTIFIER:n
+        {:  
+            if(parser.first) {
+                Boolean m = (Boolean)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-2)).value;
+                boolean mod = m == null ? false: m.booleanValue(); 
+                Type t = (Type)((java_cup.runtime.Symbol)CUP$mjavac$stack.elementAt(CUP$mjavac$top-1)).value;
+                Name c = Name.getCurrentClass();
+                String cname = c.getName();
+                Symb csymb = Env.get(cname);
+                Symb s;
+                if(csymb.isPublic()) 
+                    s = new Symb(t, c, mod);
+                else { 
+                    if(mod) 
+                        parser.warning(n, "PUBLIC FIELD DECLARED IN PRIVATE CLASS");
+                    s = new Symb(t, c, false);
+                }
+                if (!Env.putVar(n, s)) parser.sem_error(n,"DUPLICATE NAME");
+            }
+        :}
+    |   variable_declarator_id LBRACK RBRACK
+    ;
 
 // 5.3) Method Declarations
+
+
+// 方法声明可以产生方法头部 + 方法主体
 method_declaration ::=
-		method_header method_body
-	;
+        method_header method_body
+    ;
+    
+// 方法头部可以产生修饰符选项 + 类型（返回值类型） + 标识符（方法名） + 左圆括号 + 形式参数列表选项 + 右括号
 method_header ::=
-		modifiers_opt:m type:t1 IDENTIFIER:n 
- 		{:	if(parser.first) { if (!Env.put(n, null)) parser.sem_error(n,"DUPLICATE NAME");
-						 System.out.println(" METHOD ENTRY: "+n);
-		 			       Env.push();
-			}
-			if(parser.second) { System.out.println(" METHOD ENTRY: "+n);
-						  Env.next();
-			}
-		:}
-		LPAREN formal_parameter_list_opt:t2 RPAREN
-		{:	if(parser.first) { Name c = Name.getCurrentClass();
-						 String cname = c.getName();
-						 Symb csymb = Env.get(cname);
-						 Symb s;
-						 if(csymb.isPublic()) s = new Symb(Type.method(t2, t1), c, m.booleanValue());
-						 else { if(m.booleanValue()) parser.warning(n, "PUBLIC METHOD DECLARED IN PRIVATE CLASS");
-				 		        s = new Symb(Type.method(t2, t1), c, false);
-						 }
-						 Env.putSymb(n, s); 
-			}
-		:}
-	|	modifiers_opt:m VOID IDENTIFIER:n 
-		{:	if(parser.first) { if (!Env.put(n, null)) parser.sem_error(n,"DUPLICATE NAME");
-						 System.out.println(" METHOD ENTRY: "+n);
-		 				 Env.push();
-			}
-			if(parser.second) { System.out.println(" METHOD ENTRY: "+n);
-						  Env.next();
-			}
-		:}
-		LPAREN formal_parameter_list_opt:t RPAREN
- 		{:	if(parser.first) { Name c = Name.getCurrentClass();
-						 String cname = c.getName();
-						 Symb csymb = Env.get(cname);
-						 Symb s;
-						 if(csymb.isPublic()) s = new Symb(Type.method(t, Type.voidtype()), c, m.booleanValue());
-						 else { if(m.booleanValue()) parser.warning(n, "PUBLIC METHOD DECLARED IN PRIVATE CLASS");
-				 		 	  s = new Symb(Type.method(t, Type.voidtype()), c, false);
-			 			 } 
-						 Env.putSymb(n, s); 
-			}
-		:}
-	|	error 
-		{: 	parser.report_error("method_header","WRONG");
-			System.out.println(" METHOD ENTRY: ");
-			Env.push();
- 		:} 
-		LPAREN formal_parameter_list_opt RPAREN
-	;
+        modifiers_opt:m type:t1 IDENTIFIER:n 
+        {:  if(parser.first) { if (!Env.put(n, null)) parser.sem_error(n,"DUPLICATE NAME");
+                         System.out.println(" METHOD ENTRY: "+n);
+                           Env.push();
+            }
+            if(parser.second) { System.out.println(" METHOD ENTRY: "+n);
+                          Env.next();
+            }
+        :}
+        LPAREN formal_parameter_list_opt:t2 RPAREN
+        {:  if(parser.first) { Name c = Name.getCurrentClass();
+                         String cname = c.getName();
+                         Symb csymb = Env.get(cname);
+                         Symb s;
+                         if(csymb.isPublic()) s = new Symb(Type.method(t2, t1), c, m.booleanValue());
+                         else { if(m.booleanValue()) parser.warning(n, "PUBLIC METHOD DECLARED IN PRIVATE CLASS");
+                                s = new Symb(Type.method(t2, t1), c, false);
+                         }
+                         Env.putSymb(n, s); 
+            }
+        :}
+    |   modifiers_opt:m VOID IDENTIFIER:n 
+        {:  if(parser.first) { if (!Env.put(n, null)) parser.sem_error(n,"DUPLICATE NAME");
+                         System.out.println(" METHOD ENTRY: "+n);
+                         Env.push();
+            }
+            if(parser.second) { System.out.println(" METHOD ENTRY: "+n);
+                          Env.next();
+            }
+        :}
+        LPAREN formal_parameter_list_opt:t RPAREN
+        {:  if(parser.first) { Name c = Name.getCurrentClass();
+                         String cname = c.getName();
+                         Symb csymb = Env.get(cname);
+                         Symb s;
+                         if(csymb.isPublic()) s = new Symb(Type.method(t, Type.voidtype()), c, m.booleanValue());
+                         else { if(m.booleanValue()) parser.warning(n, "PUBLIC METHOD DECLARED IN PRIVATE CLASS");
+                              s = new Symb(Type.method(t, Type.voidtype()), c, false);
+                         } 
+                         Env.putSymb(n, s); 
+            }
+        :}
+    |   error 
+        {:  parser.report_error("method_header","WRONG");
+            System.out.println(" METHOD ENTRY: ");
+            Env.push();
+        :} 
+        LPAREN formal_parameter_list_opt RPAREN
+    ;
+    
+// 形式参数列表选项可以产生空、形式参数列表
 formal_parameter_list_opt ::=
-		{: RESULT = Type.voidtype(); :}
-	|	formal_parameter_list:t
-		{: RESULT = t; :}
-	;
+        {: RESULT = Type.voidtype(); :}
+    |   formal_parameter_list:t
+        {: RESULT = t; :}
+    ;
+// 形式参数列表可以产生形式参数 、形式参数列表 + 形式参数
 formal_parameter_list ::=
-		formal_parameter:t
-		{: RESULT = t; :}
-	|	formal_parameter_list:t1 COMMA formal_parameter:t2
-		{: RESULT = Type.product(t1, t2); :}
-	|	error 
-			{: parser.report_error("formal_parameter_list","WRONG"); :} 
-		formal_parameter
-	;
+        formal_parameter:t
+        {: RESULT = t; :}
+    |   formal_parameter_list:t1 COMMA formal_parameter:t2
+        {: RESULT = Type.product(t1, t2); :}
+    |   error 
+            {: parser.report_error("formal_parameter_list","WRONG"); :} 
+        formal_parameter
+    ;
+// 形式参数可以产生类型 + 变量声明单元
 formal_parameter ::=
-		type:t variable_declarator_id
-		{: RESULT = t; :}
-	;
+        type:t variable_declarator_id
+        {: RESULT = t; :}
+    ;
+// 方法主体可以产生左花括号 + 语句语句块选项 + 右花括号
 method_body ::=
-		LBRACE block_statements_opt RBRACE
-		{: 	System.out.println(" METHOD EXIT");
-			if(parser.first) Env.pop();
-			if(parser.second) Env.next(); 
-		:}
-	|	SEMICOLON
-		{: 	System.out.println(" METHOD EXIT");
-			if(parser.first) Env.pop();
-			if(parser.second) Env.next(); 
-		:}
-	;
+        LBRACE block_statements_opt RBRACE
+        {:  System.out.println(" METHOD EXIT");
+            if(parser.first) Env.pop();
+            if(parser.second) Env.next(); 
+        :}
+    |   SEMICOLON
+        {:  System.out.println(" METHOD EXIT");
+            if(parser.first) Env.pop();
+            if(parser.second) Env.next(); 
+        :}
+    ;
 
 // 5.4) Constructor Declarations
+
+// 构造函数声明可以产生构造函数修饰符 + 构造函数主体
 constructor_declaration ::=
-		constructor_declarator constructor_body
-	;
+        constructor_declarator constructor_body
+    ;
+    
+// 构造函数修饰符可以产生修饰符选项 + 标识符 + 左圆括号 + 形式参数列表 + 右圆括号
 constructor_declarator ::=
-		modifiers_opt:m IDENTIFIER:n 
-		{:	if(parser.first) { if (!Env.put(n, null)) parser.sem_error(n,"DUPLICATE NAME");
-						 System.out.println(" CONSTRUCTOR ENTRY: "+n);
-		 				 Env.push();
-			}
-			if(parser.second) { System.out.println(" CONSTRUCTOR ENTRY: "+n);
-						  Env.next();
-			}
-		:}
-		LPAREN formal_parameter_list_opt:t RPAREN
-		{:	if(parser.first) { Name c = Name.getCurrentClass();
-						 String cname = c.getName();
-						 Symb csymb = Env.get(cname);
-						 Symb s;
-						 if(csymb.isPublic()) s = new Symb(Type.constructor(t, Type.reference(Type.getName(n))), c, m.booleanValue());
-						 else { if(m.booleanValue()) parser.warning(n, "PUBLIC CONSTRUCTOR DECLARED IN PRIVATE CLASS");
-				 		        s = new Symb(Type.constructor(t, Type.reference(Type.getName(n))), c, false);
-						 }	
-						 Env.putSymb(n, s);
-			} 
-		:}
-	;
+        modifiers_opt:m IDENTIFIER:n 
+        {:  
+            if(parser.first) { 
+                if (!Env.put(n, null)) 
+                    parser.sem_error(n,"DUPLICATE NAME");
+                System.out.println(" CONSTRUCTOR ENTRY: "+n);
+                Env.push();
+            }
+            if(parser.second) { 
+                System.out.println(" CONSTRUCTOR ENTRY: "+n);
+                Env.next();
+            }
+        :}
+        LPAREN formal_parameter_list_opt:t RPAREN
+        {:  
+            if(parser.first) { 
+                Name c = Name.getCurrentClass();
+                String cname = c.getName();
+                Symb csymb = Env.get(cname);
+                Symb s;
+                if(csymb.isPublic()) 
+                    s = new Symb(Type.constructor(t, Type.reference(Type.getName(n))), c, m.booleanValue());
+                else { 
+                    if(m.booleanValue()) 
+                        parser.warning(n, "PUBLIC CONSTRUCTOR DECLARED IN PRIVATE CLASS");
+                    s = new Symb(Type.constructor(t, Type.reference(Type.getName(n))), c, false);
+                }  
+                Env.putSymb(n, s);
+            } 
+        :}
+    ;
+    
+//构造函数主体可以产生 左花括号 + 隐式构造函数调用 + 语句块语句选项 + 右花括号
 constructor_body ::=
-		LBRACE explicit_constructor_invocation block_statements_opt RBRACE
-		{: 	System.out.println(" CONSTRUCTOR EXIT");
-			if(parser.first) Env.pop(); 
-			if(parser.second) Env.next();
-		:}
-	|	LBRACE block_statements_opt RBRACE
-		{: 	System.out.println(" CONSTRUCTOR EXIT");
-			if(parser.first) Env.pop(); 
-			if(parser.second) Env.next();
-		:}
-	;
+        LBRACE explicit_constructor_invocation block_statements_opt RBRACE
+        {:  
+            System.out.println(" CONSTRUCTOR EXIT");
+            if(parser.first) Env.pop(); 
+            if(parser.second) Env.next();
+        :}
+    |   LBRACE block_statements_opt RBRACE
+        {:  
+            System.out.println(" CONSTRUCTOR EXIT");
+            if(parser.first) Env.pop(); 
+            if(parser.second) Env.next();
+        :}
+    ;
+// 隐式构造函数调用可以产生 this关键词 + 左圆括号 + 形式参数列表 + 右圆括号 + 分号
 explicit_constructor_invocation ::=
-		THIS LPAREN argument_list_opt RPAREN SEMICOLON
-	|	SUPER LPAREN argument_list_opt RPAREN SEMICOLON
-	|	primary DOT THIS LPAREN argument_list_opt RPAREN SEMICOLON
-	|	primary DOT SUPER LPAREN argument_list_opt RPAREN SEMICOLON
-	;
+        THIS LPAREN argument_list_opt RPAREN SEMICOLON
+    |   SUPER LPAREN argument_list_opt RPAREN SEMICOLON
+    |   primary DOT THIS LPAREN argument_list_opt RPAREN SEMICOLON
+    |   primary DOT SUPER LPAREN argument_list_opt RPAREN SEMICOLON
+    ;
 
 // 6) Blocks and Statements
+
+// 语句块和语句
+
+// 语句块可以产生左花括号 + 语句块语句选项 + 右花括号
 block ::=
-		LBRACE
- 		{: 	System.out.println(" BLOCK ENTRY");
-			if(parser.first) Env.push(); 
-			if(parser.second) Env.next();
-		:}
-		block_statements_opt
- 		{: 	System.out.println(" BLOCK EXIT");
-			if(parser.first) Env.pop(); 
-			if(parser.second) Env.next();
-		:}
-		RBRACE
-//	|	LBRACE error 
-//			{: parser.report_error("block","WRONG"); :} 
-//		RBRACE 
-	;
+        LBRACE
+        {:  
+            System.out.println(" BLOCK ENTRY");
+            if(parser.first) Env.push(); 
+            if(parser.second) Env.next();
+        :}
+        block_statements_opt
+        {:  
+            System.out.println(" BLOCK EXIT");
+            if(parser.first) Env.pop(); 
+            if(parser.second) Env.next();
+        :}
+        RBRACE
+//  |   LBRACE error 
+//          {: parser.report_error("block","WRONG"); :} 
+//      RBRACE 
+    ;
+    
+// 语句块语句选项可以产生空、语句块语句系列
+
 block_statements_opt ::=
-	|	block_statements
-	;
+    |   block_statements
+    ;
+    
+// 语句块语句系列可以产生语句块语句、语句块语句系列 + 语句块语句
 block_statements ::=
-		block_statement
-	|	block_statements block_statement
-	|	error 
-			{: parser.report_error("block_statements","WRONG"); :} 
-		block_statement 
-	;
+        block_statement
+    |   block_statements block_statement
+    |   error 
+            {: parser.report_error("block_statements","WRONG"); :} 
+        block_statement 
+    ;
+// 语句块语句可以产生局部变量声明语句、一般语句
 block_statement ::=
-		local_variable_declaration_statement
-	|	statement
-	;
+        local_variable_declaration_statement
+    |   statement
+    ;
+    
+// 局部变量声明语句可以产生类型 + 变量声明系列 + 分号
 local_variable_declaration_statement ::=
-		type variable_declarators SEMICOLON
-	|	type error 
-			{: parser.report_error("local_variable_declaration_statement","WRONG"); :} 
-		SEMICOLON
-	;
+        type variable_declarators SEMICOLON
+    |   type error 
+            {: parser.report_error("local_variable_declaration_statement","WRONG"); :} 
+        SEMICOLON
+    ;
+// 一般语句可以产生无尾随子句的简单语句、if-then语句、if-then-else语句、while语句
 statement ::=
-		statement_without_trailing_substatement
-	|	if_then_statement
-	|	if_then_else_statement
-	|	while_statement
-	;
+        statement_without_trailing_substatement
+    |   if_then_statement
+    |   if_then_else_statement
+    |   while_statement
+    ;
+// 可以产生无尾随子句的简单语句、
 statement_no_short_if ::=
-		statement_without_trailing_substatement
-	|	if_then_else_statement_no_short_if
-	|	while_statement_no_short_if
-	;
+        statement_without_trailing_substatement
+    |   if_then_else_statement_no_short_if
+    |   while_statement_no_short_if
+    ;
+// 无尾随子句的简单语句可以产生语句块、空语句、表达式语句、返回语句
 statement_without_trailing_substatement ::=
-		block
-	|	empty_statement
-	|	expression_statement
-	|	return_statement
-	;
+        block
+    |   empty_statement
+    |   expression_statement
+    |   return_statement
+    ;
+// 空语句
 empty_statement ::=
-		SEMICOLON
-	;
+        SEMICOLON
+    ;
+// 表达式语句可以产生语句表达式 + 分号
 expression_statement ::=
-		statement_expression SEMICOLON
-	;
+        statement_expression SEMICOLON
+    ;
+// 语句表达式可以产生赋值、方法调用、实例化语句
 statement_expression ::=
-		assignment
-	|	method_invocation
-	|	class_instance_creation_expression
-	;
+        assignment
+    |   method_invocation
+    |   class_instance_creation_expression
+    ;
+// if-then语句可以产生if + 左圆括号 + 表达式 + 右圆括号 + 语句
 if_then_statement ::=
-		IF LPAREN expression RPAREN statement
-	|	IF error 
-			{: parser.report_error("if_then_statement","WRONG"); :} 
-		RPAREN statement
-	;
+        IF LPAREN expression RPAREN statement
+    |   IF error 
+            {: parser.report_error("if_then_statement","WRONG"); :} 
+        RPAREN statement
+    ;
+
+// if-then-else语句可以产生if + 左圆括号 + 表达式 + 右圆括号 +    + else + 语句
 if_then_else_statement ::=
-		IF LPAREN expression RPAREN statement_no_short_if 
-			ELSE statement
-	|	IF LPAREN error 
-			{: parser.report_error("expression","WRONG"); :} 
-		RPAREN statement_no_short_if ELSE statement
-	;
+        IF LPAREN expression RPAREN statement_no_short_if 
+            ELSE statement
+    |   IF LPAREN error 
+            {: parser.report_error("expression","WRONG"); :} 
+        RPAREN statement_no_short_if ELSE statement
+    ;
+// 
 if_then_else_statement_no_short_if ::=
-		IF LPAREN expression RPAREN statement_no_short_if
-			ELSE statement_no_short_if
-	;
+        IF LPAREN expression RPAREN statement_no_short_if
+            ELSE statement_no_short_if
+    ;
+// while语句可以产生WHILE + 左圆括号 + 表达式 + 右圆括号 + 语句
 while_statement ::=
-		WHILE LPAREN expression RPAREN statement
-	|	WHILE error 
-			{: parser.report_error("expression","WRONG"); :} 
-		RPAREN statement
-	;
+        WHILE LPAREN expression RPAREN statement
+    |   WHILE error 
+            {: parser.report_error("expression","WRONG"); :} 
+        RPAREN statement
+    ;
+    
+// 
 while_statement_no_short_if ::=
-		WHILE LPAREN expression RPAREN statement_no_short_if
-	;
+        WHILE LPAREN expression RPAREN statement_no_short_if
+    ;
+// 返回语句
 return_statement ::=
-		RETURN expression_opt SEMICOLON
+        RETURN expression_opt SEMICOLON
       ;
 
 // 7) Expressions
-primary ::=	
-		primary_no_new_array
-	|	array_creation_expression
-	;
+
+// 基本表达式可以产生
+primary ::= 
+        primary_no_new_array
+    |   array_creation_expression
+    ;
+
+// 非数组创建表达式可以产生字面值、THIS、左圆括号 + 表达式 + 右圆括号、
 primary_no_new_array ::=
-		literal
-	|	THIS
-	|	LPAREN expression RPAREN
-	|	class_instance_creation_expression
-	|	field_access
-	|	method_invocation
-	|	array_access
-	|	primitive_type DOT CLASS
-	|	VOID DOT CLASS
-	|	array_type DOT CLASS
-	|	name DOT CLASS
-	|	name DOT THIS
-	|	LPAREN error
-			{: parser.report_error("primary_no_new_array","WRONG"); :} 
-		RPAREN
-	|	error
- 			{: parser.report_error("primary_no_new_array","WRONG"); :}
-		DOT THIS 
-	;
+        literal
+    |   THIS
+    |   LPAREN expression RPAREN
+    |   class_instance_creation_expression
+    |   field_access
+    |   method_invocation
+    |   array_access
+    |   primitive_type DOT CLASS
+    |   VOID DOT CLASS
+    |   array_type DOT CLASS
+    |   name DOT CLASS
+    |   name DOT THIS
+    |   LPAREN error
+            {: parser.report_error("primary_no_new_array","WRONG"); :} 
+        RPAREN
+    |   error
+            {: parser.report_error("primary_no_new_array","WRONG"); :}
+        DOT THIS 
+    ;
+// 对象实例化语句可以产生NEW + name + 左圆括号 + 参数列表选项 + 右圆括号 + 类主体选项
 class_instance_creation_expression ::=
-		NEW name LPAREN argument_list_opt RPAREN class_body_opt
-	|	primary DOT NEW IDENTIFIER
-			LPAREN argument_list_opt RPAREN class_body_opt
-	;
+        NEW name LPAREN argument_list_opt RPAREN class_body_opt
+    |   primary DOT NEW IDENTIFIER
+            LPAREN argument_list_opt RPAREN class_body_opt
+    ;
+// 类主体选项可以产生空、类主体
 class_body_opt ::=
-	|	class_body
+    |   class_body
 ;
+// 参数列表选项
 argument_list_opt ::=
-	|	argument_list
-	;
+    |   argument_list
+    ;
+// 参数列表
 argument_list ::=
-		expression
-	|	argument_list COMMA expression
-	|	error 
-			{: parser.report_error("argument_list","WRONG"); :} 
-		expression
-	;
+        expression
+    |   argument_list COMMA expression
+    |   error 
+            {: parser.report_error("argument_list","WRONG"); :} 
+        expression
+    ;
+// 数组创建表达式
 array_creation_expression ::=
-		NEW primitive_type dim_exprs dims_opt
-	|	NEW name dim_exprs dims_opt
-	;
+        NEW primitive_type dim_exprs dims_opt
+    |   NEW name dim_exprs dims_opt
+    ;
+// 数组维表达式系列
 dim_exprs ::=
-		dim_expr
-	|	dim_exprs dim_expr
-	|	error 
-			{: parser.report_error("dim_expr","WRONG"); :} 
-		dim_expr
-	;
-dim_expr ::=	LBRACK expression RBRACK
-	;
+        dim_expr
+    |   dim_exprs dim_expr
+    |   error 
+            {: parser.report_error("dim_expr","WRONG"); :} 
+        dim_expr
+    ;
+// 数组维表达式
+dim_expr ::=    LBRACK expression RBRACK
+    ;
+// 数组维选项
 dims_opt ::=
-	|	dims
-	;
+    |   dims
+    ;
+// 数组维系列
 dims ::=
-		LBRACK RBRACK
-	|	dims LBRACK RBRACK
-	;
+        LBRACK RBRACK
+    |   dims LBRACK RBRACK
+    ;
+// 成员变量获取
 field_access ::=
-		primary DOT IDENTIFIER
-	|	SUPER DOT IDENTIFIER
-	|	name DOT SUPER DOT IDENTIFIER
-	;
+        primary DOT IDENTIFIER
+    |   SUPER DOT IDENTIFIER
+    |   name DOT SUPER DOT IDENTIFIER
+    ;
+    
+// 方法调用
 method_invocation ::=
-		name LPAREN argument_list_opt RPAREN
-	|	primary DOT IDENTIFIER LPAREN argument_list_opt RPAREN
-	|	SUPER DOT IDENTIFIER LPAREN argument_list_opt RPAREN
-	|	name DOT SUPER DOT IDENTIFIER LPAREN argument_list_opt RPAREN
-	;
+        name LPAREN argument_list_opt RPAREN
+    |   primary DOT IDENTIFIER LPAREN argument_list_opt RPAREN
+    |   SUPER DOT IDENTIFIER LPAREN argument_list_opt RPAREN
+    |   name DOT SUPER DOT IDENTIFIER LPAREN argument_list_opt RPAREN
+    ;
+// 数组获取
 array_access ::=
-		name LBRACK expression RBRACK
-	|	primary_no_new_array LBRACK expression RBRACK
-	;
+        name LBRACK expression RBRACK
+    |   primary_no_new_array LBRACK expression RBRACK
+    ;
+// 后缀表达式
 postfix_expression ::=
-		primary
-	|	name
-	|	AT name
-	;
+        primary
+    |   name
+    |   AT name
+    ;
+// 一元表达式
 unary_expression ::=
-		postfix_expression
-	|	NOT unary_expression
-	|	PLUS unary_expression
-	|	MINUS unary_expression
-	;
+        postfix_expression
+    |   NOT unary_expression
+    |   PLUS unary_expression
+    |   MINUS unary_expression
+    ;
+// 二级运算表达式
 multiplicative_expression ::=
-		unary_expression
-	|	multiplicative_expression MULT unary_expression
-	|	multiplicative_expression DIV unary_expression
-	|	multiplicative_expression MOD unary_expression
-	|	error 
-			{: parser.report_error("multiplicative_expression","WRONG"); :} 
-		MULT unary_expression
-	|	error 
-			{: parser.report_error("multiplicative_expression","WRONG"); :} 
-		DIV unary_expression	
-	|	error 
-			{: parser.report_error("multiplicative_expression","WRONG"); :} 
-		MOD unary_expression
-	;
+        unary_expression
+    |   multiplicative_expression MULT unary_expression
+    |   multiplicative_expression DIV unary_expression
+    |   multiplicative_expression MOD unary_expression
+    |   error 
+            {: parser.report_error("multiplicative_expression","WRONG"); :} 
+        MULT unary_expression
+    |   error 
+            {: parser.report_error("multiplicative_expression","WRONG"); :} 
+        DIV unary_expression    
+    |   error 
+            {: parser.report_error("multiplicative_expression","WRONG"); :} 
+        MOD unary_expression
+    ;
+// 一级运算表达式
 additive_expression ::=
-		multiplicative_expression
-	|	additive_expression PLUS multiplicative_expression
-	|	additive_expression MINUS multiplicative_expression
-	;
+        multiplicative_expression
+    |   additive_expression PLUS multiplicative_expression
+    |   additive_expression MINUS multiplicative_expression
+    ;
+// 关系表达式
 relational_expression ::=
-		additive_expression
-	|	relational_expression LT additive_expression
-	|	relational_expression GT additive_expression
-	|	relational_expression LTEQ additive_expression
-	|	relational_expression GTEQ additive_expression
-	|	error 
-			{: parser.report_error("relational_expression","WRONG"); :} 
-		LT additive_expression
-	|	error 
-			{: parser.report_error("relational_expression","WRONG"); :} 
-		GT additive_expression
-	|	error 
-			{: parser.report_error("relational_expression","WRONG"); :} 
-		LTEQ additive_expression
-	|	error 
-			{: parser.report_error("relational_expression","WRONG"); :} 
-		GTEQ additive_expression
-	;
+        additive_expression
+    |   relational_expression LT additive_expression
+    |   relational_expression GT additive_expression
+    |   relational_expression LTEQ additive_expression
+    |   relational_expression GTEQ additive_expression
+    |   error 
+            {: parser.report_error("relational_expression","WRONG"); :} 
+        LT additive_expression
+    |   error 
+            {: parser.report_error("relational_expression","WRONG"); :} 
+        GT additive_expression
+    |   error 
+            {: parser.report_error("relational_expression","WRONG"); :} 
+        LTEQ additive_expression
+    |   error 
+            {: parser.report_error("relational_expression","WRONG"); :} 
+        GTEQ additive_expression
+    ;
+// 相等性表达式
 equality_expression ::=
-		relational_expression
-	|	equality_expression EQEQ relational_expression
-	|	equality_expression NOTEQ relational_expression
-	|	error 
-			{: parser.report_error("equality_expression","WRONG"); :} 
-		EQEQ relational_expression
-	|	error 
-			{: parser.report_error("equality_expression","WRONG"); :} 
-		NOTEQ relational_expression
-	;
+        relational_expression
+    |   equality_expression EQEQ relational_expression
+    |   equality_expression NOTEQ relational_expression
+    |   error 
+            {: parser.report_error("equality_expression","WRONG"); :} 
+        EQEQ relational_expression
+    |   error 
+            {: parser.report_error("equality_expression","WRONG"); :} 
+        NOTEQ relational_expression
+    ;
+// 逻辑与表达式
 conditional_and_expression ::=
-		equality_expression
-	|	conditional_and_expression ANDAND equality_expression
-	|	error 
-			{: parser.report_error("conditional_and_expression","WRONG"); :} 
-		ANDAND equality_expression
-	;
+        equality_expression
+    |   conditional_and_expression ANDAND equality_expression
+    |   error 
+            {: parser.report_error("conditional_and_expression","WRONG"); :} 
+        ANDAND equality_expression
+    ;
+// 逻辑或表达式
 conditional_or_expression ::=
-		conditional_and_expression
-	|	conditional_or_expression OROR conditional_and_expression
-	|	error 
-			{: parser.report_error("conditional_or_expression","WRONG"); :} 
-		OROR conditional_and_expression
-	;
+        conditional_and_expression
+    |   conditional_or_expression OROR conditional_and_expression
+    |   error 
+            {: parser.report_error("conditional_or_expression","WRONG"); :} 
+        OROR conditional_and_expression
+    ;
+// 条件表达式
 conditional_expression ::=
-		conditional_or_expression
-	|	conditional_or_expression QUESTION expression COLON conditional_expression
-	|	error 
-			{: parser.report_error("conditional_expression","WRONG"); :} 
-		QUESTION expression COLON conditional_or_expression
-	;
+        conditional_or_expression
+    |   conditional_or_expression QUESTION expression COLON conditional_expression
+    |   error 
+            {: parser.report_error("conditional_expression","WRONG"); :} 
+        QUESTION expression COLON conditional_or_expression
+    ;
+// 赋值表达式
 assignment_expression ::=
-		conditional_expression
-	|	assignment
-	;
+        conditional_expression
+    |   assignment
+    ;
+// 赋值
 assignment ::=
-		left_hand_side EQ assignment_expression
-	|	error 
-			{: parser.report_error("left_hand_side","WRONG"); :} 
-		EQ assignment_expression
-	;
+        left_hand_side EQ assignment_expression
+    |   error 
+            {: parser.report_error("left_hand_side","WRONG"); :} 
+        EQ assignment_expression
+    ;
+// 赋值左端
 left_hand_side ::=
-		name
-	|	field_access
-	|	array_access
-	;
+        name
+    |   field_access
+    |   array_access
+    ;
+// 表达式选项
 expression_opt ::=
-	|	expression
-	;
-expression ::=	assignment_expression
-	;
+    |   expression
+    ;
+    
+// 表达式可以产生赋值语句
+expression ::=  assignment_expression
+    ;
+
+
+
+
+

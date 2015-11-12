@@ -1,24 +1,14 @@
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Copyright (C) 2006  Silvano Rivoira <silvano.rivoira@polito.it>                    *
- * All rights reserved.                                                    *
- *                                                                         *
- * This program is free software; you can redistribute it and/or modify    *
- * it under the terms of the GNU General Public License. See the file      *
- * COPYRIGHT for more information.                                         *
- *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
- * but WITHOUT ANY WARRANTY;              *
- *                                                                         *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-/* mjava  language lexer specification */
+/* MiniJava 词法分析规约 */
 
 import java_cup.runtime.*;
 
 %%
-
+//====================================================================================
+//====================================================================================
+/* 声明为公共类*/
 %public
 %class Scanner
+/* 实现了sym接口*/
 %implements sym
 
 %unicode
@@ -26,6 +16,7 @@ import java_cup.runtime.*;
 %line
 %column
 
+/* CUP适配模式*/
 %cup
 %cupdebug
 
@@ -71,7 +62,7 @@ InputCharacter = [^\r\n]
 
 WhiteSpace = {LineTerminator} | [ \t\f]
 
-/* comments */
+/* 注释 */
 Comment = {TraditionalComment} | {EndOfLineComment} | 
           {DocumentationComment}
 
@@ -79,13 +70,13 @@ TraditionalComment = "/*" [^*] ~"*/" | "/*" "*"+ "/"
 EndOfLineComment = "//" {InputCharacter}* {LineTerminator}?
 DocumentationComment = "/*" "*"+ [^/*] ~"*/"
 
-/* identifiers */
+/* 标识符 */
 Identifier = [:jletter:][:jletterdigit:]*
 
-/* integer literals */
+/* 整型字面值   */
 DecIntegerLiteral = 0 | [1-9][0-9]*
 
-/* floating point literals */        
+/* 浮点数字面值 */        
 FloatLiteral  = ({FLit1}|{FLit2}|{FLit3}) {Exponent}? 
 
 FLit1    = [0-9]+ \. [0-9]* 
@@ -93,17 +84,26 @@ FLit2    = \. [0-9]+
 FLit3    = [0-9]+ 
 Exponent = [eE] [+-]? [0-9]+
 
-/* string and character literals */
+/* 字符串和字符字面值 */
 StringCharacter = [^\r\n\"\\]
 SingleCharacter = [^\r\n\'\\]
 
+
+/* 定义状态字符串读取状态，字符读取状态*/
 %state STRING, CHARLITERAL
 
-%%
 
+
+
+%%
+//====================================================================================
+//====================================================================================
+/* 分三种状态进行匹配：默认开始状态、字符串读取状态，字符读取状态 */
+
+/* 默认开始状态匹配的token*/
 <YYINITIAL> {
 
-  /* keywords */
+  /* MiniJava关键词 */
   "boolean"                      { return symbol(BOOLEAN); }
   "char"                         { return symbol(CHAR); }
   "class"                        { return symbol(CLASS); }
@@ -120,15 +120,15 @@ SingleCharacter = [^\r\n\'\\]
   "while"                        { return symbol(WHILE); }
   "this"                         { return symbol(THIS); }
 
-  /* boolean literals */
+  /* 布尔字面值 */
   "true"                         { return symbol(BOOLEAN_LITERAL, new Boolean(true)); }
   "false"                        { return symbol(BOOLEAN_LITERAL, new Boolean(false)); }
   
-  /* null literal */
+  /* 空字面值 */
   "null"                         { return symbol(NULL_LITERAL); }
   
   
-  /* separators */
+  /* 分隔符 */
   "("                            { return symbol(LPAREN); }
   ")"                            { return symbol(RPAREN); }
   "{"                            { return symbol(LBRACE); }
@@ -139,7 +139,7 @@ SingleCharacter = [^\r\n\'\\]
   ","                            { return symbol(COMMA); }
   "."                            { return symbol(DOT); }
   
-  /* operators */
+  /* 运算符 */
   "="                            { return symbol(EQ); }
   ">"                            { return symbol(GT); }
   "<"                            { return symbol(LT); }
@@ -151,7 +151,7 @@ SingleCharacter = [^\r\n\'\\]
   ">="                           { return symbol(GTEQ); }
   "!="                           { return symbol(NOTEQ); }
   "&&"                           { return symbol(ANDAND); }
-  "&"          			   { return symbol(AT); }
+  "&"                            { return symbol(AT); }
   "||"                           { return symbol(OROR); } 
   "+"                            { return symbol(PLUS); }
   "-"                            { return symbol(MINUS); }
@@ -159,35 +159,38 @@ SingleCharacter = [^\r\n\'\\]
   "/"                            { return symbol(DIV); }
   "%"                            { return symbol(MOD); }
   
-  /* string literal */
+  /* 进入字符串读取状态 */
   \"                             { yybegin(STRING); string.setLength(0); }
 
-  /* character literal */
+  /* 进入字符读取状态   */
   \'                             { yybegin(CHARLITERAL); }
 
-  /* numeric literals */
+  /* 数字字面值   */
 
   {DecIntegerLiteral}            { return symbol(INTEGER_LITERAL, new Integer(yytext())); }
 
  
   {FloatLiteral}                 { return symbol(FLOATING_POINT_LITERAL, new Float(yytext().substring(0,yylength()))); }
   
-  /* comments */
+  /* 注释 */
   {Comment}                      { /* ignore */ }
 
-  /* whitespace */
+  /* 空白 */
   {WhiteSpace}                   { /* ignore */ }
 
-  /* identifiers */ 
+  /* 标识符 */ 
   {Identifier}                   { return symbol(IDENTIFIER, yytext()); }  
 }
 
+
+/* 字符串读取状态*/
 <STRING> {
+  //读取到第二个双引号，则进入默认开始状态
   \"                             { yybegin(YYINITIAL); return symbol(STRING_LITERAL, string.toString()); }
   
   {StringCharacter}+             { string.append( yytext() ); }
   
-  /* escape sequences */
+  /* 转义字符 */
   "\\b"                          { string.append( '\b' ); }
   "\\t"                          { string.append( '\t' ); }
   "\\n"                          { string.append( '\n' ); }
@@ -198,15 +201,18 @@ SingleCharacter = [^\r\n\'\\]
   "\\\\"                         { string.append( '\\' ); }
 
   
-  /* error cases */
+  /* 错误情况，字符串内不应该出现以下字符，出现则报错 */
   \\.                            { throw new RuntimeException("Illegal escape sequence \""+yytext()+"\""); }
   {LineTerminator}               { throw new RuntimeException("Unterminated string at end of line"); }
 }
 
+
+/* 字符读取状态*/
 <CHARLITERAL> {
+  //读取到第二个单引号，则进入默认开始状态
   {SingleCharacter}\'            { yybegin(YYINITIAL); return symbol(CHARACTER_LITERAL, new Character(yytext().charAt(0))); }
   
-  /* escape sequences */
+  /* 转义字符 */
   "\\b"\'                        { yybegin(YYINITIAL); return symbol(CHARACTER_LITERAL, new Character('\b'));}
   "\\t"\'                        { yybegin(YYINITIAL); return symbol(CHARACTER_LITERAL, new Character('\t'));}
   "\\n"\'                        { yybegin(YYINITIAL); return symbol(CHARACTER_LITERAL, new Character('\n'));}
@@ -217,11 +223,11 @@ SingleCharacter = [^\r\n\'\\]
   "\\\\"\'                       { yybegin(YYINITIAL); return symbol(CHARACTER_LITERAL, new Character('\\')); }
 
   
-  /* error cases */
+  /* 错误情况，字符不应该出现以下字符，出现则报错 */
   {LineTerminator}               { throw new RuntimeException("Unterminated character literal at end of line"); }
 }
 
-/* error fallback */
+/* 读取到其他字符则同样报错 */
 
 .|\n                             { return symbol(ILLEGAL_CHARACTER, yytext());}
 <<EOF>>                          { return symbol(EOF); }
