@@ -1,0 +1,65 @@
+/* 声明包*/
+package hit.cup.demo;
+/* 导入所需库*/
+import java_cup.runtime.*;
+
+action code {:
+	/** 测试*/
+	public void status(){
+		System.out.println("- - - - ");
+		System.out.println(" *_* " + parser.stack);
+		System.out.println(" *_* " + parser.tos );
+		System.out.println(" *_* " + parser.cur_token );
+		System.out.println("- - - - ");
+	}
+
+:}
+
+// 将添加到语法分析器
+parser code {:
+    // Connect this parser to a scanner!
+    SimpleScanner s;
+    Parser(SimpleScanner s){ this.s=s; }
+:}
+
+/* define how to connect to the scanner! */
+init with {: s.init(); :};
+
+
+scan with {: return s.next_token(); :};
+
+/* Terminals (tokens returned by the scanner). */
+terminal            SEMI, PLUS, MINUS, TIMES, UMINUS, LPAREN, RPAREN;
+terminal Integer    NUMBER;        // our scanner provides numbers as integers
+
+/* Non terminals */
+non terminal            expr_list;
+non terminal Integer    expr;      // used to store evaluated subexpressions
+
+/* Precedences */
+precedence left PLUS, MINUS;
+precedence left TIMES;
+precedence left UMINUS;
+
+
+
+
+/* The grammar rules */
+expr_list ::= expr_list expr:e SEMI         	{: System.out.println(e); status();:}
+            | expr:e SEMI                   	{: System.out.println(e); status();:}
+;
+
+
+
+expr      ::= expr:e1 PLUS  expr:e2         	{: RESULT = e1+e2;  status();     :}
+             	| expr:e1 MINUS expr:e2        	{: RESULT = e1-e2;  status();     :}
+             	| expr:e1 TIMES expr:e2        	{: RESULT = e1*e2;  status();     :}
+             	| MINUS expr:e                 	{: RESULT = -e;     status();     :}
+  	     			%prec UMINUS
+       			| LPAREN expr:e RPAREN	        {: RESULT = e;      status();     :}
+       			| NUMBER:n	                    {: RESULT = n;      status();     :}
+             ;
+             
+             
+             
+             
