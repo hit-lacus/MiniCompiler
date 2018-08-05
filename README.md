@@ -1,5 +1,5 @@
-#How to write your own compiler
-##如何编写属于自己的编译器（译文）
+# How to write your own compiler [如何编写属于自己的编译器(译文)]
+
 ![Politecnico di Torino](http://i.imgur.com/xnhTZWU.png)
 ![HIT](http://i.imgur.com/e7NSR80.jpg)
 
@@ -12,13 +12,13 @@
 - - - -
 - - - -
 
-###摘要
+### 摘要
 作为[Formal Languages and Compilers课程](http://staff.polito.it/silvano.rivoira/FormalLanguagesCompilers/materials.htm)和[Linguaggi e Traduttori课程](http://staff.polito.it/silvano.rivoira/LingTrad/materiale.htm)的任课老师，作者将使用JFlex，CUP，LLVM编写一个基于Java的，能够编译mjava语言（MiniJava，一种Java语言的子集）的编译器。
 
-###预期的读者
+### 预期的读者
 刚开始学习编译原理并希望锻炼自己实践能力的计算机相关专业本科三年级学生（BTW，译者就是这种情况 ^_^ ），和其他编译原理的入门者；本文不适合已有与编译相关的丰富经历的读者阅读。
 
-###前提条件
+### 前提条件
 * 您必须掌握编译原理的基本知识，包括词法分析、语法分析、语义分析
 * 您必须足够了解Java以便您能阅读、编写和调试Java代码
 * 您需要简单了解一些Maven的相关知识
@@ -27,29 +27,29 @@
 	2. [CUP,an LALR parser generator for Java](http://www2.cs.tum.edu/projects/cup/)
 	3. [LLVM](http://llvm.org/)
 
-###译者的测试环境
+### 译者的测试环境
 * Windows 7
 * JDK 1.8.05 64bit
 * Maven 3.3
 * JFlex 1.6.1
 * CUP 0.11b
 
-###开始前的准备
+### 开始前的准备
 1. 准备Java(Java6及以上皆可)
 2. 准备Maven(译者使用版本3.3.3)
 3. 准备Eclipse for Java(建议使用4.0版本以上，译者使用Eclipse Luna，即4.4版本)
 4. [获得Github代码](https://github.com/hit-lacus/MiniCompiler)
 
 
-###简单了解编译器	
+### 简单了解编译器	
 
-###简单了解JFLex
-
-
-###简单了解CUP
+### 简单了解JFLex
 
 
-###译者注
+### 简单了解CUP
+
+
+### 译者注
 本文基于译者理解，对原文进行一定的增删，由于本人理解有限，译文并不一定符合原作者的表达。
 
 
@@ -62,7 +62,7 @@
 - - - - -
 - - - - -
 
-#目录
+# 目录
 1. 介绍（Introduction）
 2. 自制编译器准备编译的语言（Source lauguage）
 3. 文法分析（Lexical analysis）
@@ -75,7 +75,7 @@
 10. 面向对象的代码生成
 
 
-###介绍
+### 介绍
 
 这篇文档介绍了一个构建完整的、能够编译一门真正的语言的编译器，这里演示了如何一步步地设计和实现编译过程的不同阶段。本编译器使用的工具都是开源和免费的：
 
@@ -94,7 +94,7 @@
 * 只实现了基本的流程操作
 * I/O操作只能通过类似C风格的printf和scanf语句
 
-###文法分析
+### 文法分析
 首先我们将设法获取文法元素（单词，token），通过文法分析器的生成器。JFlex将文法规约（文法规约定义了一些正则表达式，并可以在匹配正则表达式后执行一段Java代码）转化为一个实现了DFA的Java程序。
 
 请参看mjava.flex，这篇文法规约使用sym.java中的整形常量来标识mjava中出现的终结符。
@@ -109,7 +109,7 @@ Flex可以处理mjava.flex来生成一个Scanner.java，一个词法分析器。
 现在我们来对mjava代码进行语法结构分析。通过CUP，我们能见分析器规约转换成一个实现LALR语法分析器的Java程序。语法分析器规约放在mjava.cup文件，mjava.cup生成的语法分析器依赖于mjava.flex生成的词法分析器，用CUP处理mjava.cup将获得两个文件：sym.java和mjavac.java，前者定义了终结符，而后者是语法分析器。
 
 
-###符号表
+### 符号表
 
 一旦我们完成了语法分析，我们就能开始语义分析阶段。
 
@@ -139,7 +139,7 @@ Flex可以处理mjava.flex来生成一个Scanner.java，一个词法分析器。
 	创建一个新的Java类
 
 
-###类型
+### 类型
 
 在类型匹配方面，这里使用Type.java对类型进行建模，首先我们将mjava中的类型分为以下两种（和Java几乎一致）：
 1. 基本类型，如整型、浮点型、字符型、布尔型等
@@ -194,14 +194,14 @@ JavaSymbol.java的成员变量包括：
 
 
 
-#附录
+# 附录
 
-##mjava语言结构分析
+## mjava语言结构分析
 
-####概述
+#### 概述
 mjava类似于Java，但不支持包的概念，所有类必须在一个文件内声明。
 
-####源代码实例
+#### 源代码实例
 
 		public class String{
 		}
@@ -239,7 +239,7 @@ mjava类似于Java，但不支持包的概念，所有类必须在一个文件�
 		    } 
 		}
 
-####终结符
+#### 终结符
 以Java语言作为类比，终结符应该包括一下几类：
 
 1. 英语标点符号，如分号、圆括号、英语句号，英语逗号、@符号
@@ -280,7 +280,7 @@ mjava类似于Java，但不支持包的概念，所有类必须在一个文件�
 		terminal NULL_LITERAL;
 
 
-####非终结符与产生式
+#### 非终结符与产生式
 
 开始之前，我们首先约定文法的开始符号为**goal**。
 
@@ -290,7 +290,7 @@ mjava类似于Java，但不支持包的概念，所有类必须在一个文件�
 其中**class\_declarations**表示类声明系列。
 
 - - - - - 
-######主体
+###### 主体
 - - - - -
 
 同时由于一个Java文件可以包含一到多个Java类的声明，所以**class\_declarations**可以推出 **class\_declaration**或者**class\_declarations** **class\_declaration**。
